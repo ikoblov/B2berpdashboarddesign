@@ -2,13 +2,14 @@ import { useState } from "react";
 import { PaymentsV15 } from "./payments/PaymentsV15Compact";
 import RegistersV2 from "./payments/RegistersV2";
 import TrustedSMZ from "./payments/TrustedSMZ";
+import RiskMonitor from "./payments/RiskMonitor";
 import { cn } from "../lib/utils";
 
 interface PaymentsProps {
   onNavigate?: (view: string) => void;
 }
 
-type PaymentsTab = 'pending' | 'registers' | 'distributors';
+type PaymentsTab = 'pending' | 'registers' | 'distributors' | 'risks';
 
 export function Payments({ onNavigate }: PaymentsProps) {
   const [activeTab, setActiveTab] = useState<PaymentsTab>('distributors');
@@ -52,6 +53,17 @@ export function Payments({ onNavigate }: PaymentsProps) {
             >
               Доверенные СМЗ
             </button>
+            <button
+              onClick={() => setActiveTab('risks')}
+              className={cn(
+                "flex-1 px-4 py-2 rounded text-xs transition-all",
+                activeTab === 'risks'
+                  ? "bg-blue-50 text-blue-700 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+              )}
+            >
+              Проверка рисков
+            </button>
           </div>
         </div>
 
@@ -60,6 +72,7 @@ export function Payments({ onNavigate }: PaymentsProps) {
           {activeTab === 'pending' && <PaymentsV15 />}
           {activeTab === 'registers' && <RegistersV2 />}
           {activeTab === 'distributors' && <TrustedSMZ />}
+          {activeTab === 'risks' && <RiskMonitor />}
         </div>
       </div>
     </div>
