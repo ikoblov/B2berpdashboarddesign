@@ -1,36 +1,23 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Plus,
-  Filter,
-  Calendar,
   Search,
-  LayoutGrid,
-  List,
   MoreVertical,
-  AlertCircle,
   Clock,
-  User,
-  Link2,
-  MessageSquare,
-  Paperclip,
-  X,
-  ChevronDown,
-  ExternalLink,
-  Flag,
+  MapPin,
+  Route,
+  Play,
   CheckCircle2,
-  Circle,
-  Pause,
-  XCircle,
-  Users,
-  FileText,
-  ClockIcon,
-  DollarSign,
-  UserCircle,
-  MessageCircle,
+  SkipForward,
+  LayoutList,
+  Columns3,
+  CalendarDays,
   AlertTriangle,
+  FileText,
   Building2,
-  Send,
-  Tag,
+  Users,
+  Zap,
+  Handshake,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
@@ -58,850 +45,912 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "./ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 import { Label } from "./ui/label";
 
-interface Task {
+// ─── Types ───
+
+type TaskStatus = "planned" | "in-progress" | "review" | "done" | "cancelled";
+type TaskCategory = "objects" | "documents" | "clients" | "internal" | "urgent";
+type TaskPriority = "urgent" | "high" | "medium" | "low";
+type ViewMode = "list" | "board" | "calendar";
+type RoutePointStatus = "planned" | "in-progress" | "done" | "missed";
+
+interface TaskItem {
   id: string;
   title: string;
-  description?: string;
-  status: 'new' | 'in-progress' | 'waiting' | 'review' | 'completed' | 'cancelled';
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  type: 'shift' | 'request' | 'client' | 'payment' | 'worker' | 'communication' | 'incident';
-  assignee?: {
-    name: string;
-    avatar?: string;
-  };
-  deadline?: Date;
-  linkedEntity?: {
-    type: string;
-    id: string;
-    name: string;
-  };
-  lastAction?: string;
-  sla?: {
-    status: 'ok' | 'warning' | 'overdue';
-  };
-  createdAt: Date;
-  tags?: string[];
-  activities?: Array<{
-    id: string;
-    type: 'comment' | 'status-change' | 'assignment' | 'file';
-    user: string;
-    content: string;
-    timestamp: Date;
-  }>;
+  description: string;
+  category: TaskCategory;
+  object: { name: string; address: string } | null;
+  assignee: string;
+  priority: TaskPriority;
+  deadline: string; // DD.MM.YYYY
+  deadlineDate: Date;
+  status: TaskStatus;
 }
 
-const mockTasks: Task[] = [
-  {
-    id: 'ЗАД-847',
-    title: 'Согласовать график смен на декабрь',
-    description: 'Необходимо согласовать и утвердить график смен для объекта ЖК Северный на декабрь 2025',
-    status: 'new',
-    priority: 'high',
-    type: 'shift',
-    assignee: { name: 'Анна Смирнова' },
-    deadline: new Date('2025-11-22T18:00:00'),
-    linkedEntity: { type: 'Объект', id: 'ОБ-123', name: 'ЖК Северный' },
-    lastAction: 'Создана 2 часа назад',
-    sla: { status: 'ok' },
-    createdAt: new Date('2025-11-20T14:00:00'),
-    tags: ['график', 'срочно'],
-    activities: [
-      { id: '1', type: 'comment', user: 'Анна Смирнова', content: 'Начинаю работу над графиком', timestamp: new Date('2025-11-20T14:30:00') },
-    ],
-  },
-  {
-    id: 'ЗАД-846',
-    title: 'Подписать акт выполненных работ с МегаСтрой',
-    description: 'Акт готов, требуется подпись руководителя и печать',
-    status: 'in-progress',
-    priority: 'critical',
-    type: 'client',
-    assignee: { name: 'Михаил Петров' },
-    deadline: new Date('2025-11-20T17:00:00'),
-    linkedEntity: { type: 'Клиент', id: 'КЛ-042', name: 'МегаСтрой ООО' },
-    lastAction: 'Документ отправлен на согласование',
-    sla: { status: 'warning' },
-    createdAt: new Date('2025-11-19T10:00:00'),
-    tags: ['документы', 'клиент'],
-    activities: [
-      { id: '1', type: 'comment', user: 'Михаил Петров', content: 'Документ подготовлен и отправлен', timestamp: new Date('2025-11-20T11:00:00') },
-      { id: '2', type: 'status-change', user: 'Михаил Петров', content: 'Статус изменён на "В работе"', timestamp: new Date('2025-11-20T11:05:00') },
-    ],
-  },
-  {
-    id: 'ЗАД-845',
-    title: 'Разобраться с задержкой выплат исполнителям',
-    description: 'Несколько исполнителей жалуются на задержку выплат за прошлую неделю',
-    status: 'waiting',
-    priority: 'critical',
-    type: 'payment',
-    assignee: { name: 'Елена Волкова' },
-    deadline: new Date('2025-11-20T16:00:00'),
-    linkedEntity: { type: 'Реестр', id: 'РЕЕ-0847', name: 'Реестр выплат 11-17 ноября' },
-    lastAction: 'Ожидает ответа от банка',
-    sla: { status: 'overdue' },
-    createdAt: new Date('2025-11-20T09:00:00'),
-    tags: ['зарплата', 'срочно', 'инцидент'],
-    activities: [
-      { id: '1', type: 'comment', user: 'Елена Волкова', content: 'Связалась с банком, выясняю причину задержки', timestamp: new Date('2025-11-20T10:00:00') },
-    ],
-  },
-  {
-    id: 'ЗАД-844',
-    title: 'Проверить информацию о прорабе смены #8834',
-    description: 'Прораб не вышел на связь в начале смены, требуется проверка',
-    status: 'in-progress',
-    priority: 'high',
-    type: 'incident',
-    assignee: { name: 'Дмитрий Соколов' },
-    deadline: new Date('2025-11-20T12:00:00'),
-    linkedEntity: { type: 'Смена', id: 'СМ-8834', name: 'Смена #8834 - ТЦ Гранд Плаза' },
-    lastAction: 'Связался с объектом',
-    sla: { status: 'ok' },
-    createdAt: new Date('2025-11-20T08:30:00'),
-    tags: ['инцидент', 'смена'],
-    activities: [
-      { id: '1', type: 'comment', user: 'Дмитрий Соколов', content: 'Прораб был на объекте, проблема с телефоном', timestamp: new Date('2025-11-20T09:15:00') },
-    ],
-  },
-  {
-    id: 'ЗАД-843',
-    title: 'Ответить на запрос клиента РемСтройСервис',
-    description: 'Клиент запросил КП на 15 исполнителей',
-    status: 'review',
-    priority: 'medium',
-    type: 'communication',
-    assignee: { name: 'Анна Смирнова' },
-    deadline: new Date('2025-11-21T12:00:00'),
-    linkedEntity: { type: 'Обращение', id: 'COM-1840', name: 'Запрос от РемСтройСервис' },
-    lastAction: 'КП отправлено на проверку',
-    sla: { status: 'ok' },
-    createdAt: new Date('2025-11-19T11:00:00'),
-    tags: ['клиент', 'КП'],
-    activities: [
-      { id: '1', type: 'comment', user: 'Анна Смирнова', content: 'КП подготовлено, отправляю на проверку', timestamp: new Date('2025-11-20T10:00:00') },
-    ],
-  },
-  {
-    id: 'ЗАД-842',
-    title: 'Найти замену для исполнителя Сидорова А.М.',
-    description: 'Исполнитель заболел, нужна срочная замена на завтра',
-    status: 'new',
-    priority: 'high',
-    type: 'worker',
-    assignee: { name: 'Дмитрий Соколов' },
-    deadline: new Date('2025-11-20T20:00:00'),
-    linkedEntity: { type: 'Исполнитель', id: 'РАБ-456', name: 'Сидоров А.М.' },
-    lastAction: 'Создана 1 час назад',
-    sla: { status: 'ok' },
-    createdAt: new Date('2025-11-20T13:20:00'),
-    tags: ['исполнители', 'срочно'],
-    activities: [],
-  },
-  {
-    id: 'ЗАД-841',
-    title: 'Обработать заявку #4521',
-    description: 'Новая заявка на 12 исполнителей для ЖК Северный',
-    status: 'completed',
-    priority: 'medium',
-    type: 'request',
-    assignee: { name: 'Михаил Петров' },
-    deadline: new Date('2025-11-20T15:00:00'),
-    linkedEntity: { type: 'Заявка', id: 'ЗАЯ-4521', name: 'Заявка #4521' },
-    lastAction: 'Заявка обработана  одобрена',
-    sla: { status: 'ok' },
-    createdAt: new Date('2025-11-19T14:00:00'),
-    tags: ['заявка'],
-    activities: [
-      { id: '1', type: 'comment', user: 'Михаил Петров', content: 'Все позиции доступны, заявка одобрена', timestamp: new Date('2025-11-20T11:00:00') },
-      { id: '2', type: 'status-change', user: 'Михаил Петров', content: 'Статус изменён на "Выполнена"', timestamp: new Date('2025-11-20T11:30:00') },
-    ],
-  },
+interface RoutePoint {
+  id: string;
+  order: number;
+  time: string;
+  objectName: string;
+  checkType: string;
+  priority: TaskPriority;
+  distanceToNext: string | null;
+  status: RoutePointStatus;
+}
+
+// ─── Configs ───
+
+const statusConfig: Record<TaskStatus, { label: string; cls: string }> = {
+  planned: { label: "Запланировано", cls: "bg-gray-50 text-gray-600 border-gray-200" },
+  "in-progress": { label: "В работе", cls: "bg-blue-50 text-blue-700 border-blue-200" },
+  review: { label: "На проверке", cls: "bg-purple-50 text-purple-700 border-purple-200" },
+  done: { label: "Выполнено", cls: "bg-green-50 text-green-700 border-green-200" },
+  cancelled: { label: "Отменено", cls: "bg-gray-50 text-gray-400 border-gray-200 line-through" },
+};
+
+const categoryConfig: Record<TaskCategory, { label: string; icon: string; cls: string; Icon: typeof Building2 }> = {
+  objects: { label: "По объектам", icon: "🏗", cls: "bg-blue-50 text-blue-700 border-blue-200", Icon: Building2 },
+  documents: { label: "Документы", icon: "📄", cls: "bg-purple-50 text-purple-700 border-purple-200", Icon: FileText },
+  clients: { label: "Клиенты", icon: "🤝", cls: "bg-green-50 text-green-700 border-green-200", Icon: Handshake },
+  internal: { label: "Внутренние", icon: "🏢", cls: "bg-gray-50 text-gray-600 border-gray-200", Icon: Users },
+  urgent: { label: "Срочные", icon: "⚠️", cls: "bg-red-50 text-red-700 border-red-200", Icon: Zap },
+};
+
+const priorityConfig: Record<TaskPriority, { label: string; cls: string }> = {
+  urgent: { label: "Срочный", cls: "bg-red-50 text-red-700 border-red-200" },
+  high: { label: "Высокий", cls: "bg-orange-50 text-orange-700 border-orange-200" },
+  medium: { label: "Средний", cls: "bg-yellow-50 text-yellow-700 border-yellow-200" },
+  low: { label: "Низкий", cls: "bg-gray-50 text-gray-500 border-gray-200" },
+};
+
+const routeStatusConfig: Record<RoutePointStatus, { label: string; cls: string }> = {
+  planned: { label: "Запланировано", cls: "bg-gray-50 text-gray-600 border-gray-200" },
+  "in-progress": { label: "В работе", cls: "bg-blue-50 text-blue-700 border-blue-200" },
+  done: { label: "Выполнено", cls: "bg-green-50 text-green-700 border-green-200" },
+  missed: { label: "Пропущено", cls: "bg-yellow-50 text-yellow-700 border-yellow-200" },
+};
+
+const assignees = [
+  { id: "alexey", name: "Куратор Алексей К.", short: "Алексей К.", gradient: "from-blue-400 to-cyan-500" },
+  { id: "anna", name: "Менеджер Анна П.", short: "Анна П.", gradient: "from-pink-400 to-rose-500" },
+  { id: "dmitry", name: "Менеджер Дмитрий С.", short: "Дмитрий С.", gradient: "from-amber-400 to-orange-500" },
 ];
 
-const statusConfig = {
-  'new': { label: 'Новая', icon: Circle, color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  'in-progress': { label: 'В работе', icon: Clock, color: 'bg-orange-100 text-orange-700 border-orange-200' },
-  'waiting': { label: 'Ожидает', icon: Pause, color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-  'review': { label: 'На проверке', icon: AlertCircle, color: 'bg-purple-100 text-purple-700 border-purple-200' },
-  'completed': { label: 'Выполнена', icon: CheckCircle2, color: 'bg-green-100 text-green-700 border-green-200' },
-  'cancelled': { label: 'Отменена', icon: XCircle, color: 'bg-gray-100 text-gray-700 border-gray-200' },
-};
+const objectsList = [
+  { name: "Склад Столбище", address: "ул. Промышленная 5" },
+  { name: "ТЦ Мега Казань", address: "пр. Победы 141" },
+  { name: "Логопарк Казань", address: "ул. Складская 12" },
+  { name: "Завод КОС", address: "ул. Заводская 3, Казань" },
+  { name: "Склад Зеленодольск", address: "ул. Промзона 1" },
+  { name: "Склад Ozon Казань", address: "ул. Логистическая 8" },
+];
 
-const priorityConfig = {
-  'low': { label: 'Низкий', color: 'text-gray-600' },
-  'medium': { label: 'Средний', color: 'text-blue-600' },
-  'high': { label: 'Высокий', color: 'text-orange-600' },
-  'critical': { label: 'Критичный', color: 'text-red-600' },
-};
+// ─── Helpers ───
 
-const typeConfig = {
-  'shift': { label: 'По сменам', icon: ClockIcon, color: 'bg-cyan-100 text-cyan-700 border-cyan-200' },
-  'request': { label: 'По заявке', icon: FileText, color: 'bg-orange-100 text-orange-700 border-orange-200' },
-  'client': { label: 'По клиенту', icon: Users, color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  'payment': { label: 'По выплатам', icon: DollarSign, color: 'bg-green-100 text-green-700 border-green-200' },
-  'worker': { label: 'По исполнителю', icon: UserCircle, color: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
-  'communication': { label: 'По коммуникации', icon: MessageCircle, color: 'bg-purple-100 text-purple-700 border-purple-200' },
-  'incident': { label: 'Инцидент', icon: AlertTriangle, color: 'bg-red-100 text-red-700 border-red-200' },
-};
+const TODAY = new Date(2026, 3, 3); // 03.04.2026
 
-const slaColors = {
-  ok: 'bg-green-100 text-green-700',
-  warning: 'bg-yellow-100 text-yellow-700',
-  overdue: 'bg-red-100 text-red-700',
-};
+function getDeadlineInfo(d: Date): { text: string; cls: string } {
+  const diff = Math.floor((d.getTime() - TODAY.getTime()) / 86400000);
+  if (diff < 0) return { text: `Просрочено ${Math.abs(diff)} дн.`, cls: "text-red-600" };
+  if (diff === 0) return { text: "Сегодня", cls: "text-orange-600" };
+  if (diff === 1) return { text: "Завтра", cls: "text-gray-600" };
+  return { text: d.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" }), cls: "text-gray-500" };
+}
+
+function getTimeGroup(d: Date): "overdue" | "today" | "week" | "later" {
+  const diff = Math.floor((d.getTime() - TODAY.getTime()) / 86400000);
+  if (diff < 0) return "overdue";
+  if (diff === 0) return "today";
+  if (diff <= 6) return "week";
+  return "later";
+}
+
+function getInitials(name: string) {
+  return name.split(" ").map(p => p[0]).filter(Boolean).join("").slice(0, 2);
+}
+
+function getAssigneeGradient(name: string) {
+  const a = assignees.find(x => x.short === name || x.name === name);
+  return a?.gradient || "from-gray-400 to-gray-500";
+}
+
+// ─── Mock Data ───
+
+const mockTasks: TaskItem[] = [
+  // Overdue
+  { id: "T-001", title: "Подготовить акт для ООО Магнит за март", description: "Закрывающие документы по договору оказания услуг", category: "documents", object: null, assignee: "Анна П.", priority: "high", deadline: "01.04.2026", deadlineDate: new Date(2026, 3, 1), status: "in-progress" },
+  { id: "T-002", title: "Разбор инцидента на Заводе КОС", description: "Травма на производственной линии — разбор и акт", category: "urgent", object: { name: "Завод КОС", address: "ул. Заводская 3, Казань" }, assignee: "Алексей К.", priority: "urgent", deadline: "02.04.2026", deadlineDate: new Date(2026, 3, 2), status: "in-progress" },
+  // Today
+  { id: "T-003", title: "Проверка начала смен — Склад Столбище", description: "Утренний обход, контроль явки исполнителей", category: "objects", object: { name: "Склад Столбище", address: "ул. Промышленная 5" }, assignee: "Алексей К.", priority: "medium", deadline: "03.04.2026", deadlineDate: new Date(2026, 3, 3), status: "in-progress" },
+  { id: "T-004", title: "Согласовать заявку на 15 чел. Мега Казань", description: "Запрос от заказчика на расширение штата", category: "clients", object: { name: "ТЦ Мега Казань", address: "пр. Победы 141" }, assignee: "Дмитрий С.", priority: "high", deadline: "03.04.2026", deadlineDate: new Date(2026, 3, 3), status: "planned" },
+  { id: "T-005", title: "Оформить договор с новым клиентом", description: "Подготовка и согласование договора с ООО СтройЛогистик", category: "documents", object: null, assignee: "Анна П.", priority: "medium", deadline: "03.04.2026", deadlineDate: new Date(2026, 3, 3), status: "review" },
+  { id: "T-006", title: "Инструктаж новых исполнителей", description: "Вводный инструктаж для 5 новых исполнителей на складе", category: "objects", object: { name: "Логопарк Казань", address: "ул. Складская 12" }, assignee: "Алексей К.", priority: "medium", deadline: "03.04.2026", deadlineDate: new Date(2026, 3, 3), status: "done" },
+  // This week
+  { id: "T-007", title: "Встреча с заказчиком Wildberries", description: "Обсуждение условий нового контракта", category: "clients", object: { name: "ТЦ Мега Казань", address: "пр. Победы 141" }, assignee: "Дмитрий С.", priority: "high", deadline: "05.04.2026", deadlineDate: new Date(2026, 3, 5), status: "planned" },
+  { id: "T-008", title: "Проверка качества — Логопарк", description: "Контроль качества уборки после ночно�� смены", category: "objects", object: { name: "Логопарк Казань", address: "ул. Складская 12" }, assignee: "Алексей К.", priority: "medium", deadline: "05.04.2026", deadlineDate: new Date(2026, 3, 5), status: "planned" },
+  { id: "T-009", title: "Обновить шаблон реестра выплат", description: "Внести изменения в шаблон Excel для бухгалтерии", category: "internal", object: null, assignee: "Анна П.", priority: "low", deadline: "06.04.2026", deadlineDate: new Date(2026, 3, 6), status: "planned" },
+  { id: "T-010", title: "Собеседование кандидатов (5 чел)", description: "Первичный отбор кандидатов для объекта Ozon", category: "internal", object: null, assignee: "Дмитрий С.", priority: "medium", deadline: "06.04.2026", deadlineDate: new Date(2026, 3, 6), status: "planned" },
+  { id: "T-011", title: "Проверка завершения — Склад Зеленодольск", description: "Вечерний обход, контроль закрытия смен", category: "objects", object: { name: "Склад Зеленодольск", address: "ул. Промзона 1" }, assignee: "Алексей К.", priority: "medium", deadline: "07.04.2026", deadlineDate: new Date(2026, 3, 7), status: "planned" },
+  // Later
+  { id: "T-012", title: "Подготовить отчёт за Q1 2026", description: "Квартальный отчёт по всем объектам", category: "documents", object: null, assignee: "Анна П.", priority: "medium", deadline: "11.04.2026", deadlineDate: new Date(2026, 3, 11), status: "planned" },
+  { id: "T-013", title: "Ревизия СИЗ на Складе Ozon", description: "Проверка наличия и состояния средств индивидуальной защиты", category: "objects", object: { name: "Склад Ozon Казань", address: "ул. Логистическая 8" }, assignee: "Алексей К.", priority: "low", deadline: "12.04.2026", deadlineDate: new Date(2026, 3, 12), status: "planned" },
+  { id: "T-014", title: "Обучение новых кураторов", description: "Тренинг по работе с PF ERP для новых кураторов", category: "internal", object: null, assignee: "Дмитрий С.", priority: "medium", deadline: "14.04.2026", deadlineDate: new Date(2026, 3, 14), status: "planned" },
+  { id: "T-015", title: "Продлить договор с ООО Магнит", description: "Согласование условий продления на Q2", category: "clients", object: null, assignee: "Анна П.", priority: "high", deadline: "15.04.2026", deadlineDate: new Date(2026, 3, 15), status: "planned" },
+];
+
+const mockRoutePoints: RoutePoint[] = [
+  { id: "R-1", order: 1, time: "09:00", objectName: "Склад Столбище", checkType: "Проверка начала смен", priority: "medium", distanceToNext: "23.5 км", status: "done" },
+  { id: "R-2", order: 2, time: "10:00", objectName: "Склад Столбище", checkType: "Проверка качества", priority: "high", distanceToNext: "0 км", status: "in-progress" },
+  { id: "R-3", order: 3, time: "11:30", objectName: "ТЦ Мега Казань", checkType: "Встреча с представителем", priority: "high", distanceToNext: "15.2 км", status: "planned" },
+  { id: "R-4", order: 4, time: "13:00", objectName: "Логопарк Казань", checkType: "Проверка начала смен", priority: "medium", distanceToNext: "8.1 км", status: "planned" },
+  { id: "R-5", order: 5, time: "14:30", objectName: "Завод КОС", checkType: "Инструктаж новых исполнителей", priority: "medium", distanceToNext: null, status: "planned" },
+];
+
+// ─── Main Component ───
 
 interface TasksProps {
-  onNavigate?: (view: 'dashboard' | 'activity' | 'communications' | 'tasks' | 'requests') => void;
+  onNavigate?: (view: string) => void;
 }
 
 export function Tasks({ onNavigate }: TasksProps) {
-  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
-  const [quickView, setQuickView] = useState<'all' | 'mine' | 'team'>('all');
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"tasks" | "routes" | "my">("tasks");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  const groupedTasks = {
-    new: mockTasks.filter(t => t.status === 'new'),
-    'in-progress': mockTasks.filter(t => t.status === 'in-progress'),
-    waiting: mockTasks.filter(t => t.status === 'waiting'),
-    review: mockTasks.filter(t => t.status === 'review'),
-    completed: mockTasks.filter(t => t.status === 'completed'),
-    cancelled: mockTasks.filter(t => t.status === 'cancelled'),
-  };
+  return (
+    <div className="p-6">
+      <div className="max-w-[1800px] mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-gray-900 mb-1">Задачи</h1>
+          </div>
+          <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
+            <Plus className="w-4 h-4" />
+            Создать задачу
+          </Button>
+        </div>
 
-  const isOverdue = (task: Task) => {
-    return task.deadline && task.deadline < new Date() && task.status !== 'completed' && task.status !== 'cancelled';
+        {/* KPI Cards */}
+        <div className="grid grid-cols-4 gap-3 mb-4">
+          <KpiCard icon={<LayoutList className="w-4 h-4 text-gray-500" />} label="Всего задач" value={47} color="text-gray-900" bg="bg-gray-100" />
+          <KpiCard icon={<Clock className="w-4 h-4 text-blue-500" />} label="В работе" value={12} color="text-blue-600" bg="bg-blue-50" />
+          <KpiCard icon={<AlertTriangle className="w-4 h-4 text-red-500" />} label="Просрочено" value={3} color="text-red-600" bg="bg-red-50" />
+          <KpiCard icon={<CheckCircle2 className="w-4 h-4 text-green-500" />} label="Выполнено сегодня" value={8} color="text-green-600" bg="bg-green-50" />
+        </div>
+
+        {/* Tabs */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-4 p-1.5">
+          <div className="flex items-center gap-1">
+            {([
+              { key: "tasks", label: "Все задачи" },
+              { key: "routes", label: "Маршруты" },
+              { key: "my", label: "Мои задачи" },
+            ] as const).map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  "flex-1 px-4 py-2 rounded text-xs transition-all",
+                  activeTab === tab.key
+                    ? "bg-blue-50 text-blue-700 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        <div className="animate-in fade-in duration-200">
+          {activeTab === "tasks" && <AllTasksTab tasks={mockTasks} />}
+          {activeTab === "routes" && <RoutesTab />}
+          {activeTab === "my" && <MyTasksTab tasks={mockTasks.filter(t => t.assignee === "Анна П.")} />}
+        </div>
+
+        <CreateTaskDialog open={isCreateOpen} onOpenChange={setIsCreateOpen} />
+      </div>
+    </div>
+  );
+}
+
+// ─── KPI Card ───
+
+function KpiCard({ icon, label, value, color, bg }: { icon: React.ReactNode; label: string; value: number; color: string; bg: string }) {
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", bg)}>{icon}</div>
+        <span className="text-xs text-gray-500">{label}</span>
+      </div>
+      <div className={cn("text-2xl", color)}>{value}</div>
+    </div>
+  );
+}
+
+// ─── Tab 1: All Tasks ───
+
+function AllTasksTab({ tasks }: { tasks: TaskItem[] }) {
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterPriority, setFilterPriority] = useState("all");
+  const [filterAssignee, setFilterAssignee] = useState("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+
+  const filtered = useMemo(() => {
+    return tasks.filter(t => {
+      if (filterStatus !== "all" && t.status !== filterStatus) return false;
+      if (filterCategory !== "all" && t.category !== filterCategory) return false;
+      if (filterPriority !== "all" && t.priority !== filterPriority) return false;
+      if (filterAssignee !== "all") {
+        const a = assignees.find(x => x.id === filterAssignee);
+        if (a && t.assignee !== a.short) return false;
+      }
+      if (search) {
+        const q = search.toLowerCase();
+        return t.title.toLowerCase().includes(q) || t.description.toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [tasks, search, filterStatus, filterCategory, filterPriority, filterAssignee]);
+
+  const toggleCheck = (id: string) => {
+    setChecked(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
   };
 
   return (
-    <>
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-16 z-10">
-        <div className="px-8 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-gray-900 mb-1">Задачи</h1>
-              <p className="text-sm text-gray-600">Управление задачами и операционными процессами</p>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <Select defaultValue="week">
-                <SelectTrigger className="w-[180px] bg-gray-50 border-gray-200">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="today">Сегодня</SelectItem>
-                  <SelectItem value="week">Эта неделя</SelectItem>
-                  <SelectItem value="month">Этот месяц</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Button variant="outline" className="gap-2">
-                <Filter className="w-4 h-4" />
-                Фильтры
-              </Button>
-
-              <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="w-4 h-4" />
-                    Создать задачу
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Создать задачу</DialogTitle>
-                  </DialogHeader>
-                  <div className="grid grid-cols-2 gap-6 py-4">
-                    <div className="col-span-2">
-                      <Label htmlFor="title">Название задачи</Label>
-                      <Input id="title" placeholder="Введите название..." className="mt-2" />
-                    </div>
-                    
-                    <div className="col-span-2">
-                      <Label htmlFor="description">Описание</Label>
-                      <Textarea id="description" placeholder="Опишите задачу..." className="mt-2" rows={4} />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="priority">Приоритет</Label>
-                      <Select defaultValue="medium">
-                        <SelectTrigger id="priority" className="mt-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="low">Низкий</SelectItem>
-                          <SelectItem value="medium">Средний</SelectItem>
-                          <SelectItem value="high">Высокий</SelectItem>
-                          <SelectItem value="critical">Критичный</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="type">Тип задачи</Label>
-                      <Select defaultValue="request">
-                        <SelectTrigger id="type" className="mt-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="shift">По сменам</SelectItem>
-                          <SelectItem value="request">По заявке</SelectItem>
-                          <SelectItem value="client">По клиенту</SelectItem>
-                          <SelectItem value="payment">По выплатам</SelectItem>
-                          <SelectItem value="worker">По исполнителю</SelectItem>
-                          <SelectItem value="communication">По коммуникации</SelectItem>
-                          <SelectItem value="incident">Инцидент</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="assignee">Исполнитель</Label>
-                      <Select defaultValue="unassigned">
-                        <SelectTrigger id="assignee" className="mt-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="unassigned">Не назначено</SelectItem>
-                          <SelectItem value="anna">Анна Смирнова</SelectItem>
-                          <SelectItem value="mikhail">Михаил Петров</SelectItem>
-                          <SelectItem value="dmitry">Дмитрий Соколов</SelectItem>
-                          <SelectItem value="elena">Елена Волкова</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="deadline">Срок выполнения</Label>
-                      <Input id="deadline" type="datetime-local" className="mt-2" />
-                    </div>
-                    
-                    <div className="col-span-2">
-                      <Label htmlFor="entity">Привязка к сущности</Label>
-                      <Input id="entity" placeholder="Выберите или введите ID..." className="mt-2" />
-                    </div>
-                    
-                    <div className="col-span-2">
-                      <Label htmlFor="tags">Теги</Label>
-                      <Input id="tags" placeholder="Добавьте теги через запятую..." className="mt-2" />
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-3">
-                    <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Отменить</Button>
-                    <Button onClick={() => setIsCreateDialogOpen(false)}>Создать задачу</Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
+    <div className="space-y-3">
+      {/* Filters */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="relative w-56">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input placeholder="Поиск задач..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-white border-gray-200" />
           </div>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="w-[150px] bg-white border-gray-200"><SelectValue placeholder="Статус" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все статусы</SelectItem>
+              <SelectItem value="planned">Запланировано</SelectItem>
+              <SelectItem value="in-progress">В работе</SelectItem>
+              <SelectItem value="review">На проверке</SelectItem>
+              <SelectItem value="done">Выполнено</SelectItem>
+              <SelectItem value="cancelled">Отменено</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="w-[155px] bg-white border-gray-200"><SelectValue placeholder="Категория" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все категории</SelectItem>
+              <SelectItem value="objects">По объектам</SelectItem>
+              <SelectItem value="documents">Документы</SelectItem>
+              <SelectItem value="clients">Клиенты</SelectItem>
+              <SelectItem value="internal">Внутренние</SelectItem>
+              <SelectItem value="urgent">Срочные</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterPriority} onValueChange={setFilterPriority}>
+            <SelectTrigger className="w-[145px] bg-white border-gray-200"><SelectValue placeholder="Приоритет" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все приоритеты</SelectItem>
+              <SelectItem value="urgent">Срочный</SelectItem>
+              <SelectItem value="high">Высокий</SelectItem>
+              <SelectItem value="medium">Средний</SelectItem>
+              <SelectItem value="low">Низкий</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+            <SelectTrigger className="w-[180px] bg-white border-gray-200"><SelectValue placeholder="Исполнитель" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Все</SelectItem>
+              {assignees.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
 
-          {/* Quick Views & Search */}
-          <div className="flex items-center justify-between">
-            <div className="flex gap-2">
-              <Button 
-                variant={quickView === 'all' ? 'default' : 'outline'} 
-                size="sm"
-                onClick={() => setQuickView('all')}
+          {/* View toggle */}
+          <div className="ml-auto flex bg-gray-100 rounded-lg p-0.5">
+            {([
+              { key: "list" as ViewMode, Icon: LayoutList, label: "Список" },
+              { key: "board" as ViewMode, Icon: Columns3, label: "Доска" },
+              { key: "calendar" as ViewMode, Icon: CalendarDays, label: "Календарь" },
+            ]).map(v => (
+              <button
+                key={v.key}
+                onClick={() => setViewMode(v.key)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded text-xs transition-all",
+                  viewMode === v.key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                )}
               >
-                Все
-              </Button>
-              <Button 
-                variant={quickView === 'mine' ? 'default' : 'outline'} 
-                size="sm"
-                onClick={() => setQuickView('mine')}
-              >
-                Мои
-              </Button>
-              <Button 
-                variant={quickView === 'team' ? 'default' : 'outline'} 
-                size="sm"
-                onClick={() => setQuickView('team')}
-              >
-                Команды
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="relative w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input placeholder="Поиск задач..." className="pl-9 bg-gray-50 border-gray-200" />
-              </div>
-
-              <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-                <Button
-                  variant={viewMode === 'kanban' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('kanban')}
-                  className="gap-2"
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                  Канбан
-                </Button>
-                <Button
-                  variant={viewMode === 'list' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('list')}
-                  className="gap-2"
-                >
-                  <List className="w-4 h-4" />
-                  Список
-                </Button>
-              </div>
-            </div>
+                <v.Icon className="w-3.5 h-3.5" />
+                {v.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className={cn("transition-all", selectedTask && "mr-[700px]")}>
-        {viewMode === 'kanban' ? (
-          /* Kanban Board */
-          <div className="p-8 overflow-x-auto">
-            <div className="flex gap-4 min-w-max">
-              {Object.entries(groupedTasks).map(([status, tasks]) => {
-                const StatusIcon = statusConfig[status as keyof typeof statusConfig].icon;
-                
+      {/* Views */}
+      {viewMode === "list" && <TaskListView tasks={filtered} checked={checked} onToggle={toggleCheck} />}
+      {viewMode === "board" && <TaskBoardView tasks={filtered} />}
+      {viewMode === "calendar" && <TaskCalendarView tasks={filtered} />}
+    </div>
+  );
+}
+
+// ─── List View (grouped) ───
+
+const groupLabels: Record<string, { label: string; borderCls: string }> = {
+  overdue: { label: "Просрочено", borderCls: "border-l-red-500" },
+  today: { label: "Сегодня", borderCls: "border-l-orange-400" },
+  week: { label: "Эта неделя", borderCls: "border-l-blue-400" },
+  later: { label: "Позже", borderCls: "border-l-gray-300" },
+};
+
+function TaskListView({ tasks, checked, onToggle }: { tasks: TaskItem[]; checked: Set<string>; onToggle: (id: string) => void }) {
+  const groups = useMemo(() => {
+    const g: Record<string, TaskItem[]> = { overdue: [], today: [], week: [], later: [] };
+    tasks.forEach(t => {
+      const grp = t.status === "done" || t.status === "cancelled" ? getTimeGroup(t.deadlineDate) : getTimeGroup(t.deadlineDate);
+      g[grp].push(t);
+    });
+    return g;
+  }, [tasks]);
+
+  const orderedKeys = ["overdue", "today", "week", "later"];
+
+  return (
+    <div className="space-y-4">
+      {orderedKeys.map(key => {
+        const items = groups[key];
+        if (items.length === 0) return null;
+        const cfg = groupLabels[key];
+        return (
+          <div key={key} className={cn("bg-white rounded-lg border border-gray-200 shadow-sm border-l-4", cfg.borderCls)}>
+            <div className="px-4 py-2.5 border-b border-gray-100">
+              <span className="text-xs text-gray-500">{cfg.label}</span>
+              <span className="ml-2 text-xs text-gray-400">{items.length}</span>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-[40px]"></TableHead>
+                  <TableHead className="w-[300px]">Задача</TableHead>
+                  <TableHead className="w-[150px]">Категория</TableHead>
+                  <TableHead className="w-[200px]">Объект / Привязка</TableHead>
+                  <TableHead className="w-[160px]">Исполнитель</TableHead>
+                  <TableHead className="w-[100px]">Приоритет</TableHead>
+                  <TableHead className="w-[130px]">Срок</TableHead>
+                  <TableHead className="w-[130px]">Статус</TableHead>
+                  <TableHead className="w-[50px]"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map(task => <TaskRow key={task.id} task={task} checked={checked.has(task.id)} onToggle={() => onToggle(task.id)} />)}
+              </TableBody>
+            </Table>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TaskRow({ task, checked, onToggle }: { task: TaskItem; checked: boolean; onToggle: () => void }) {
+  const catCfg = categoryConfig[task.category];
+  const priCfg = priorityConfig[task.priority];
+  const stsCfg = statusConfig[task.status];
+  const dlInfo = getDeadlineInfo(task.deadlineDate);
+  const grad = getAssigneeGradient(task.assignee);
+
+  return (
+    <TableRow className="group hover:bg-gray-50">
+      <TableCell className="pr-0">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onToggle}
+          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+        />
+      </TableCell>
+      <TableCell>
+        <div className="text-sm text-gray-900">{task.title}</div>
+        <div className="text-xs text-gray-400 mt-0.5 truncate max-w-[280px]">{task.description}</div>
+      </TableCell>
+      <TableCell>
+        <Badge variant="outline" className={cn("text-xs gap-1", catCfg.cls)}>
+          <span>{catCfg.icon}</span> {catCfg.label}
+        </Badge>
+      </TableCell>
+      <TableCell>
+        {task.object ? (
+          <div>
+            <div className="text-sm text-gray-900">{task.object.name}</div>
+            <div className="text-xs text-gray-400">{task.object.address}</div>
+          </div>
+        ) : (
+          <span className="text-xs text-gray-300">—</span>
+        )}
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <Avatar className="w-7 h-7">
+            <AvatarFallback className={cn("text-white text-xs bg-gradient-to-br", grad)}>
+              {getInitials(task.assignee)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-sm text-gray-700">{task.assignee}</span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <Badge variant="outline" className={cn("text-xs", priCfg.cls)}>{priCfg.label}</Badge>
+      </TableCell>
+      <TableCell>
+        <div>
+          <div className="text-sm text-gray-700">{task.deadline}</div>
+          <div className={cn("text-xs", dlInfo.cls)}>{dlInfo.text}</div>
+        </div>
+      </TableCell>
+      <TableCell>
+        <Badge variant="outline" className={cn("text-xs", stsCfg.cls)}>{stsCfg.label}</Badge>
+      </TableCell>
+      <TableCell>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <MoreVertical className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem>Открыть</DropdownMenuItem>
+            <DropdownMenuItem>Редактировать</DropdownMenuItem>
+            <DropdownMenuItem>Назначить</DropdownMenuItem>
+            <DropdownMenuItem className="text-red-600">Удалить</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// ─── Board View (Kanban) ───
+
+function TaskBoardView({ tasks }: { tasks: TaskItem[] }) {
+  const columns: { key: TaskStatus; label: string }[] = [
+    { key: "planned", label: "Запланировано" },
+    { key: "in-progress", label: "В работе" },
+    { key: "review", label: "На проверке" },
+    { key: "done", label: "Выполнено" },
+  ];
+
+  return (
+    <div className="flex gap-3 overflow-x-auto pb-2">
+      {columns.map(col => {
+        const items = tasks.filter(t => t.status === col.key);
+        return (
+          <div key={col.key} className="min-w-[280px] flex-1">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-xs text-gray-500">{col.label}</span>
+              <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{items.length}</span>
+            </div>
+            <div className="space-y-2">
+              {items.map(task => {
+                const catCfg = categoryConfig[task.category];
+                const dlInfo = getDeadlineInfo(task.deadlineDate);
+                const grad = getAssigneeGradient(task.assignee);
                 return (
-                  <div key={status} className="w-80 flex-shrink-0">
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <StatusIcon className="w-4 h-4 text-gray-600" />
-                        <h3 className="text-sm text-gray-900">
-                          {statusConfig[status as keyof typeof statusConfig].label}
-                        </h3>
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
-                          {tasks.length}
-                        </span>
-                      </div>
+                  <div key={task.id} className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 hover:shadow-md transition-shadow cursor-pointer">
+                    <div className="text-sm text-gray-900 mb-2">{task.title}</div>
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Badge variant="outline" className={cn("text-xs gap-1", catCfg.cls)}>
+                        <span className="text-[10px]">{catCfg.icon}</span> {catCfg.label}
+                      </Badge>
                     </div>
-
-                    <div className="space-y-3 max-h-[calc(100vh-300px)] overflow-y-auto pr-2">
-                      {tasks.map((task) => {
-                        const TypeIcon = typeConfig[task.type].icon;
-                        const overdue = isOverdue(task);
-                        
-                        return (
-                          <div
-                            key={task.id}
-                            onClick={() => setSelectedTask(task)}
-                            className={cn(
-                              "bg-white rounded-lg border p-4 cursor-pointer transition-all hover:shadow-md group",
-                              overdue && "border-red-300 bg-red-50",
-                              selectedTask?.id === task.id && "ring-2 ring-blue-500"
-                            )}
-                          >
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-xs text-gray-500 font-mono">{task.id}</span>
-                                  <Flag className={cn("w-3 h-3", priorityConfig[task.priority].color)} />
-                                </div>
-                                <h4 className="text-sm text-gray-900 leading-snug">
-                                  {task.title}
-                                </h4>
-                              </div>
-                              <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100">
-                                <MoreVertical className="w-4 h-4" />
-                              </Button>
-                            </div>
-
-                            <div className="flex items-center gap-2 mb-3">
-                              <div className={cn("inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs border", typeConfig[task.type].color)}>
-                                <TypeIcon className="w-3 h-3" />
-                                {typeConfig[task.type].label}
-                              </div>
-                            </div>
-
-                            {task.linkedEntity && (
-                              <div className="flex items-center gap-1.5 mb-3 text-xs text-gray-600">
-                                <Link2 className="w-3 h-3" />
-                                <span>{task.linkedEntity.type}: {task.linkedEntity.id}</span>
-                              </div>
-                            )}
-
-                            <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                              {task.assignee ? (
-                                <Avatar className="w-6 h-6">
-                                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs">
-                                    {task.assignee.name.split(' ').map(n => n[0]).join('')}
-                                  </AvatarFallback>
-                                </Avatar>
-                              ) : (
-                                <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center">
-                                  <User className="w-3 h-3 text-gray-400" />
-                                </div>
-                              )}
-
-                              {task.deadline && (
-                                <div className={cn(
-                                  "flex items-center gap-1 text-xs",
-                                  overdue ? "text-red-600" : "text-gray-500"
-                                )}>
-                                  <Clock className="w-3 h-3" />
-                                  {task.deadline.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div className="flex items-center justify-between">
+                      <Avatar className="w-6 h-6">
+                        <AvatarFallback className={cn("text-white text-xs bg-gradient-to-br", grad)}>
+                          {getInitials(task.assignee)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className={cn("text-xs", dlInfo.cls)}>{task.deadline}</span>
                     </div>
+                  </div>
+                );
+              })}
+              {items.length === 0 && (
+                <div className="rounded-lg border-2 border-dashed border-gray-200 p-6 text-center text-xs text-gray-300">
+                  Нет задач
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Calendar View ───
+
+function TaskCalendarView({ tasks }: { tasks: TaskItem[] }) {
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(2026, 3, 3 + i - ((TODAY.getDay() + 6) % 7)); // Mon-Sun of current week
+    // simplify: show Mon Apr 30 - Sun Apr 6, anchored from today=Thu Apr 3
+    // Let's just show 7 days starting from Mon Mar 30
+    return new Date(2026, 2, 30 + i); // Mon Mar 30 ... Sun Apr 5
+  });
+  // Actually let's compute the week properly
+  const dayOfWeek = (TODAY.getDay() + 6) % 7; // Mon=0
+  const monday = new Date(TODAY);
+  monday.setDate(monday.getDate() - dayOfWeek);
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+
+  const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div className="grid grid-cols-7">
+        {weekDays.map((day, i) => {
+          const isToday = day.toDateString() === TODAY.toDateString();
+          const dayTasks = tasks.filter(t => t.deadlineDate.toDateString() === day.toDateString());
+          return (
+            <div key={i} className={cn("border-r border-b border-gray-100 last:border-r-0 min-h-[160px]", isToday && "bg-blue-50/30")}>
+              <div className={cn("px-2 py-1.5 border-b border-gray-100 text-center", isToday && "bg-blue-50")}>
+                <div className="text-xs text-gray-400">{dayNames[i]}</div>
+                <div className={cn("text-sm", isToday ? "text-blue-700" : "text-gray-700")}>
+                  {day.getDate()}
+                </div>
+              </div>
+              <div className="p-1 space-y-1">
+                {dayTasks.map(task => {
+                  const catCfg = categoryConfig[task.category];
+                  return (
+                    <div key={task.id} className={cn("rounded px-1.5 py-1 text-xs cursor-pointer border", catCfg.cls)} title={task.title}>
+                      <div className="truncate">{task.title}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab 2: Routes ───
+
+function RoutesTab() {
+  const [routeDate, setRouteDate] = useState("2026-04-03");
+  const [routeCurator, setRouteCurator] = useState("alexey");
+  const [points, setPoints] = useState(mockRoutePoints);
+
+  const updateStatus = (id: string, s: RoutePointStatus) => {
+    setPoints(prev => prev.map(p => p.id === id ? { ...p, status: s } : p));
+  };
+
+  const uniqueObjects = new Set(points.map(p => p.objectName)).size;
+
+  return (
+    <div className="space-y-4">
+      {/* Controls */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+        <div className="flex items-center gap-3">
+          <div>
+            <Label className="text-xs text-gray-500 mb-1 block">Дата</Label>
+            <Input type="date" value={routeDate} onChange={e => setRouteDate(e.target.value)} className="w-[170px] bg-white border-gray-200" />
+          </div>
+          <div>
+            <Label className="text-xs text-gray-500 mb-1 block">Куратор</Label>
+            <Select value={routeCurator} onValueChange={setRouteCurator}>
+              <SelectTrigger className="w-[200px] bg-white border-gray-200"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {assignees.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="self-end">
+            <Button className="gap-2">
+              <Route className="w-4 h-4" />
+              Сгенерировать маршрут
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* KPI */}
+      <div className="grid grid-cols-4 gap-3">
+        {[
+          { label: "Всего точек", value: points.length, icon: "📋", color: "text-gray-900" },
+          { label: "Объектов", value: uniqueObjects, icon: "🏢", color: "text-gray-900" },
+          { label: "Расстояние", value: "52 км", icon: "📍", color: "text-gray-900" },
+          { label: "Время в пути", value: "~1.5 ч", icon: "🕐", color: "text-gray-900" },
+        ].map(kpi => (
+          <div key={kpi.label} className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-base">{kpi.icon}</span>
+              <span className="text-xs text-gray-500">{kpi.label}</span>
+            </div>
+            <div className={cn("text-2xl", kpi.color)}>{kpi.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Route Points */}
+      <div className="space-y-2">
+        {points.map((point, idx) => {
+          const priCfg = priorityConfig[point.priority];
+          const stsCfg = routeStatusConfig[point.status];
+          const isLast = idx === points.length - 1;
+          return (
+            <div key={point.id} className="relative">
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                <div className="flex items-center gap-4">
+                  {/* Order */}
+                  <div className={cn(
+                    "w-9 h-9 rounded-full flex items-center justify-center text-sm shrink-0",
+                    point.status === "done" ? "bg-green-100 text-green-700"
+                      : point.status === "in-progress" ? "bg-blue-100 text-blue-700"
+                      : "bg-gray-100 text-gray-500"
+                  )}>
+                    {point.status === "done" ? <CheckCircle2 className="w-5 h-5" /> : point.order}
+                  </div>
+
+                  {/* Time */}
+                  <div className="text-sm text-gray-500 w-12 shrink-0">{point.time}</div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-gray-900 mb-0.5">{point.objectName}</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-gray-500">{point.checkType}</span>
+                      <Badge variant="outline" className={cn("text-xs", priCfg.cls)}>{priCfg.label}</Badge>
+                      <Badge variant="outline" className={cn("text-xs", stsCfg.cls)}>{stsCfg.label}</Badge>
+                    </div>
+                  </div>
+
+                  {/* Distance */}
+                  {point.distanceToNext && (
+                    <div className="text-xs text-gray-400 flex items-center gap-1 shrink-0">
+                      <span>→</span> {point.distanceToNext}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {point.status === "planned" && (
+                      <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => updateStatus(point.id, "in-progress")}>
+                        <Play className="w-3 h-3" /> Начал
+                      </Button>
+                    )}
+                    {point.status === "in-progress" && (
+                      <Button size="sm" className="gap-1 text-xs" onClick={() => updateStatus(point.id, "done")}>
+                        <CheckCircle2 className="w-3 h-3" /> Завершил
+                      </Button>
+                    )}
+                    {(point.status === "planned" || point.status === "in-progress") && (
+                      <Button size="sm" variant="ghost" className="gap-1 text-xs text-gray-500" onClick={() => updateStatus(point.id, "missed")}>
+                        <SkipForward className="w-3 h-3" /> Пропустить
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {!isLast && (
+                <div className="flex justify-start ml-[26px] py-0.5">
+                  <div className="w-px h-3 bg-gray-200" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Map placeholder */}
+      <div id="route-map" className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-gray-100 flex items-center justify-center" style={{ height: 400 }}>
+          <div className="text-center">
+            <MapPin className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-400">Карта маршрута (Яндекс.Карты)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab 3: My Tasks ───
+
+function MyTasksTab({ tasks }: { tasks: TaskItem[] }) {
+  const groups = useMemo(() => {
+    const g: Record<string, TaskItem[]> = { overdue: [], today: [], week: [], later: [] };
+    tasks.forEach(t => g[getTimeGroup(t.deadlineDate)].push(t));
+    return g;
+  }, [tasks]);
+
+  const orderedKeys = ["overdue", "today", "week", "later"];
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+        <div className="flex items-center gap-3">
+          <Avatar className="w-9 h-9">
+            <AvatarFallback className="bg-gradient-to-br from-pink-400 to-rose-500 text-white text-sm">АП</AvatarFallback>
+          </Avatar>
+          <div>
+            <div className="text-sm text-gray-900">Анна Петрова</div>
+            <div className="text-xs text-gray-400">Администратор · {tasks.length} задач</div>
+          </div>
+        </div>
+      </div>
+
+      {orderedKeys.map(key => {
+        const items = groups[key];
+        if (items.length === 0) return null;
+        const cfg = groupLabels[key];
+        return (
+          <div key={key} className={cn("bg-white rounded-lg border border-gray-200 shadow-sm border-l-4", cfg.borderCls)}>
+            <div className="px-4 py-2.5 border-b border-gray-100">
+              <span className="text-xs text-gray-500">{cfg.label}</span>
+              <span className="ml-2 text-xs text-gray-400">{items.length}</span>
+            </div>
+            <div className="divide-y divide-gray-50">
+              {items.map(task => {
+                const catCfg = categoryConfig[task.category];
+                const priCfg = priorityConfig[task.priority];
+                const stsCfg = statusConfig[task.status];
+                const dlInfo = getDeadlineInfo(task.deadlineDate);
+                return (
+                  <div key={task.id} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50 cursor-pointer group">
+                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-gray-900">{task.title}</div>
+                      <div className="text-xs text-gray-400 mt-0.5">{task.description}</div>
+                    </div>
+                    <Badge variant="outline" className={cn("text-xs gap-1 shrink-0", catCfg.cls)}>
+                      <span>{catCfg.icon}</span> {catCfg.label}
+                    </Badge>
+                    <Badge variant="outline" className={cn("text-xs shrink-0", priCfg.cls)}>{priCfg.label}</Badge>
+                    <div className="text-right shrink-0 w-24">
+                      <div className="text-xs text-gray-600">{task.deadline}</div>
+                      <div className={cn("text-xs", dlInfo.cls)}>{dlInfo.text}</div>
+                    </div>
+                    <Badge variant="outline" className={cn("text-xs shrink-0", stsCfg.cls)}>{stsCfg.label}</Badge>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>Открыть</DropdownMenuItem>
+                        <DropdownMenuItem>Завершить</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 );
               })}
             </div>
           </div>
-        ) : (
-          /* Table View */
-          <div className="p-8">
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[100px]">ID</TableHead>
-                    <TableHead className="min-w-[250px]">Название</TableHead>
-                    <TableHead className="w-[100px]">Приоритет</TableHead>
-                    <TableHead className="w-[180px]">Тип задачи</TableHead>
-                    <TableHead className="w-[200px]">Привязанная сущность</TableHead>
-                    <TableHead className="w-[150px]">Исполнитель</TableHead>
-                    <TableHead className="w-[140px]">Статус</TableHead>
-                    <TableHead className="w-[120px]">Deadline</TableHead>
-                    <TableHead className="w-[80px]">SLA</TableHead>
-                    <TableHead className="w-[80px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {mockTasks.map((task) => {
-                    const StatusIcon = statusConfig[task.status].icon;
-                    const TypeIcon = typeConfig[task.type].icon;
-                    const overdue = isOverdue(task);
-                    
-                    return (
-                      <TableRow
-                        key={task.id}
-                        className={cn(
-                          "cursor-pointer",
-                          selectedTask?.id === task.id && "bg-blue-50",
-                          overdue && "bg-red-50"
-                        )}
-                        onClick={() => setSelectedTask(task)}
-                      >
-                        <TableCell>
-                          <span className="font-mono text-sm">{task.id}</span>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="flex items-start gap-2">
-                            <Flag className={cn("w-4 h-4 mt-0.5", priorityConfig[task.priority].color)} />
-                            <span className="text-sm text-gray-900">{task.title}</span>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <span className={cn("text-sm", priorityConfig[task.priority].color)}>
-                            {priorityConfig[task.priority].label}
-                          </span>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border", typeConfig[task.type].color)}>
-                            <TypeIcon className="w-3.5 h-3.5" />
-                            {typeConfig[task.type].label}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          {task.linkedEntity ? (
-                            <div className="text-sm text-gray-700">
-                              <div className="text-xs text-gray-500">{task.linkedEntity.type}</div>
-                              <div>{task.linkedEntity.id}</div>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-gray-400">—</span>
-                          )}
-                        </TableCell>
-                        
-                        <TableCell>
-                          {task.assignee ? (
-                            <div className="flex items-center gap-2">
-                              <Avatar className="w-6 h-6">
-                                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs">
-                                  {task.assignee.name.split(' ').map(n => n[0]).join('')}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="text-sm text-gray-700">{task.assignee.name}</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-gray-400">Не назначено</span>
-                          )}
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs border", statusConfig[task.status].color)}>
-                            <StatusIcon className="w-3.5 h-3.5" />
-                            {statusConfig[task.status].label}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          {task.deadline ? (
-                            <div className={cn("text-sm", overdue && "text-red-600")}>
-                              {task.deadline.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-gray-400">—</span>
-                          )}
-                        </TableCell>
-                        
-                        <TableCell>
-                          {task.sla && (
-                            <div className={cn("px-2 py-1 rounded text-xs text-center", slaColors[task.sla.status])}>
-                              {task.sla.status === 'ok' && '✓'}
-                              {task.sla.status === 'warning' && '!'}
-                              {task.sla.status === 'overdue' && '✗'}
-                            </div>
-                          )}
-                        </TableCell>
-                        
-                        <TableCell>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedTask(task);
-                            }}
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
+        );
+      })}
+      {tasks.length === 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-12 text-center text-sm text-gray-400">
+          Нет задач
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Create Task Dialog ───
+
+function CreateTaskDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const [category, setCategory] = useState<string>("objects");
+  const showObject = category === "objects" || category === "urgent";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Создать задачу</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div>
+            <Label className="text-xs text-gray-500">Заголовок</Label>
+            <Input placeholder="Введите название задачи..." className="mt-1" />
           </div>
-        )}
-      </div>
-
-      {/* Right Side Panel - Task Details */}
-      {selectedTask && (
-        <div className="fixed right-0 top-16 bottom-0 w-[700px] bg-white border-l border-gray-200 shadow-xl flex flex-col z-20 overflow-y-auto">
-          {/* Panel Header */}
-          <div className="p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-sm text-gray-500 font-mono">{selectedTask.id}</span>
-                  <Flag className={cn("w-4 h-4", priorityConfig[selectedTask.priority].color)} />
-                </div>
-                <h2 className="text-xl text-gray-900">{selectedTask.title}</h2>
-              </div>
-              
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => setSelectedTask(null)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
+          <div>
+            <Label className="text-xs text-gray-500">Описание</Label>
+            <Textarea placeholder="Опишите задачу..." className="mt-1" rows={3} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-gray-500">Категория</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="objects">По объектам</SelectItem>
+                  <SelectItem value="documents">Документы</SelectItem>
+                  <SelectItem value="clients">Клиенты</SelectItem>
+                  <SelectItem value="internal">Внутренние</SelectItem>
+                  <SelectItem value="urgent">Срочные</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-
-            {/* Meta Grid */}
-            <div className="grid grid-cols-3 gap-4">
+            {showObject && (
               <div>
-                <div className="text-xs text-gray-500 mb-1">Приоритет</div>
-                <div className={cn("text-sm", priorityConfig[selectedTask.priority].color)}>
-                  {priorityConfig[selectedTask.priority].label}
-                </div>
-              </div>
-              
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Статус</div>
-                <Select defaultValue={selectedTask.status}>
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
+                <Label className="text-xs text-gray-500">Объект</Label>
+                <Select defaultValue={objectsList[0].name}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="new">Новая</SelectItem>
-                    <SelectItem value="in-progress">В работе</SelectItem>
-                    <SelectItem value="waiting">Ожидает</SelectItem>
-                    <SelectItem value="review">На проверке</SelectItem>
-                    <SelectItem value="completed">Выполнена</SelectItem>
-                    <SelectItem value="cancelled">Отменена</SelectItem>
+                    {objectsList.map(o => <SelectItem key={o.name} value={o.name}>{o.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Исполнитель</div>
-                {selectedTask.assignee ? (
-                  <div className="flex items-center gap-2">
-                    <Avatar className="w-6 h-6">
-                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs">
-                        {selectedTask.assignee.name.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm">{selectedTask.assignee.name}</span>
-                  </div>
-                ) : (
-                  <span className="text-sm text-gray-400">Не назначено</span>
-                )}
-              </div>
-
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Тип задачи</div>
-                <div className={cn("inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs border", typeConfig[selectedTask.type].color)}>
-                  {(() => {
-                    const Icon = typeConfig[selectedTask.type].icon;
-                    return <Icon className="w-3 h-3" />;
-                  })()}
-                  {typeConfig[selectedTask.type].label}
-                </div>
-              </div>
-              
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Deadline</div>
-                <div className="text-sm text-gray-900">
-                  {selectedTask.deadline?.toLocaleString('ru-RU', { 
-                    day: 'numeric', 
-                    month: 'short', 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                  }) || '—'}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Теги</div>
-                <div className="flex gap-1">
-                  {selectedTask.tags?.map((tag) => (
-                    <Badge key={tag} variant="outline" className="text-xs">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Description */}
-          {selectedTask.description && (
-            <div className="p-6 border-b border-gray-200">
-              <h4 className="text-sm text-gray-700 mb-2">Описание</h4>
-              <p className="text-sm text-gray-600 leading-relaxed">{selectedTask.description}</p>
-            </div>
-          )}
-
-          {/* Linked Entity */}
-          {selectedTask.linkedEntity && (
-            <div className="p-6 border-b border-gray-200">
-              <h4 className="text-sm text-gray-700 mb-3">Привязанная сущность</h4>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <div className="text-xs text-gray-500">{selectedTask.linkedEntity.type}</div>
-                  <div className="text-sm text-gray-900">{selectedTask.linkedEntity.name}</div>
-                  <div className="text-xs text-gray-500 font-mono">{selectedTask.linkedEntity.id}</div>
-                </div>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <ExternalLink className="w-4 h-4" />
-                  Открыть
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Activity Log */}
-          <div className="flex-1 p-6">
-            <h4 className="text-sm text-gray-700 mb-4">Активность</h4>
-            
-            {selectedTask.activities && selectedTask.activities.length > 0 ? (
-              <div className="space-y-4 mb-6">
-                {selectedTask.activities.map((activity) => (
-                  <div key={activity.id} className="flex gap-3">
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white text-xs">
-                        {activity.user.split(' ').map(n => n[0]).join('')}
-                      </AvatarFallback>
-                    </Avatar>
-                    
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm text-gray-900">{activity.user}</span>
-                        <span className="text-xs text-gray-500">
-                          {activity.timestamp.toLocaleString('ru-RU', { 
-                            day: 'numeric', 
-                            month: 'short', 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </span>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg px-4 py-3 text-sm text-gray-700">
-                        {activity.content}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-sm text-gray-500 mb-6">Пока нет активности</div>
             )}
-
-            {/* Comment Input */}
+            {!showObject && <div />}
             <div>
-              <Textarea
-                placeholder="Добавить комментарий..."
-                className="mb-3"
-                rows={3}
-              />
-              <div className="flex items-center justify-between">
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Paperclip className="w-4 h-4" />
-                    Прикрепить
-                  </Button>
-                </div>
-                <Button size="sm" className="gap-2">
-                  <Send className="w-4 h-4" />
-                  Отправить
-                </Button>
-              </div>
+              <Label className="text-xs text-gray-500">Исполнитель</Label>
+              <Select defaultValue="alexey">
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {assignees.map(a => (
+                    <SelectItem key={a.id} value={a.id}>
+                      <div className="flex items-center gap-2">
+                        <div className={cn("w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] bg-gradient-to-br", a.gradient)}>
+                          {getInitials(a.short)}
+                        </div>
+                        {a.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs text-gray-500">Приоритет</Label>
+              <Select defaultValue="medium">
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="urgent">Срочный</SelectItem>
+                  <SelectItem value="high">Высокий</SelectItem>
+                  <SelectItem value="medium">Средний</SelectItem>
+                  <SelectItem value="low">Низкий</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
-
-          {/* Quick Actions */}
-          <div className="p-6 border-t border-gray-200 bg-gray-50">
-            <h4 className="text-sm text-gray-700 mb-3">Быстрые действия</h4>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" className="gap-2">
-                <ExternalLink className="w-4 h-4" />
-                Открыть сущность
-              </Button>
-              <Button variant="outline" size="sm" className="gap-2">
-                <ClockIcon className="w-4 h-4" />
-                Связать со сменой
-              </Button>
-              <Button variant="outline" size="sm" className="gap-2">
-                <DollarSign className="w-4 h-4" />
-                Создать выплату
-              </Button>
-              <Button variant="outline" size="sm" className="gap-2">
-                <MessageCircle className="w-4 h-4" />
-                Создать обращение
-              </Button>
-            </div>
+          <div>
+            <Label className="text-xs text-gray-500">Срок</Label>
+            <Input type="date" className="mt-1" defaultValue="2026-04-05" />
           </div>
         </div>
-      )}
-    </>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>Отмена</Button>
+          <Button onClick={() => onOpenChange(false)}>Создать задачу</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
