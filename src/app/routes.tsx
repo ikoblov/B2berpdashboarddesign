@@ -16,6 +16,7 @@ import { Objects } from "./components/Objects";
 import { ObjectDetail } from "./components/ObjectDetail";
 import { Requests } from "./components/Requests";
 import { RequestDetail } from "./components/RequestDetail";
+import { CreateRequestPage } from "./components/CreateRequestPage";
 import { Shifts } from "./components/Shifts";
 import { ShiftDetail } from "./components/ShiftDetail";
 import { Workers } from "./components/Workers";
@@ -25,7 +26,7 @@ import { Payments } from "./components/Payments";
 import { Reports } from "./components/Reports";
 import { Tasks } from "./components/Tasks";
 import { Settings } from "./components/Settings";
-import { AutoPlanningScreen } from "./components/AutoPlanningScreen";
+
 
 // Root layout with persistent sidebar
 function RootLayout() {
@@ -143,10 +144,6 @@ function SettingsPage() {
   return <Settings />;
 }
 
-function AutoPlanningPage() {
-  return <AutoPlanningScreen />;
-}
-
 function NotFound() {
   const navigate = useNavigate();
   return (
@@ -178,6 +175,7 @@ export const router = createBrowserRouter([
       { path: "objects", Component: ObjectsPage },
       { path: "objects/:id", Component: ObjectDetailPage },
       { path: "requests", Component: RequestsPage },
+      { path: "requests/new", Component: CreateRequestPage },
       { path: "requests/:id", Component: RequestDetailPage },
       { path: "shifts", Component: ShiftsPage },
       { path: "shifts/:id", Component: ShiftDetailPage },
@@ -188,7 +186,6 @@ export const router = createBrowserRouter([
       { path: "reports", Component: ReportsPage },
       { path: "tasks", Component: TasksPage },
       { path: "settings", Component: SettingsPage },
-      { path: "auto-planning", Component: AutoPlanningPage },
       { path: "*", Component: NotFound },
     ],
   },

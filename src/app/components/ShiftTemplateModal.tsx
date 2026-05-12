@@ -9,6 +9,7 @@ import { Badge } from "./ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
@@ -121,9 +122,9 @@ export function ShiftTemplateModal({
           <DialogTitle className="text-gray-900">
             {mode === 'create' ? 'Создать шаблон смены' : 'Редактировать шаблон смены'}
           </DialogTitle>
-          <p className="text-sm text-gray-600 mt-1">
+          <DialogDescription className="text-sm text-gray-600 mt-1">
             Настройте параметры смены и требования к персоналу
-          </p>
+          </DialogDescription>
         </DialogHeader>
 
         <div className="py-6">

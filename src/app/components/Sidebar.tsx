@@ -15,7 +15,6 @@ import {
   CheckSquare,
   ChevronLeft,
   Menu,
-  Sparkles
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useState } from "react";
@@ -253,50 +252,26 @@ export function Sidebar() {
             <>
               <button
                 onClick={() => {
-                  toggleSection('requests');
-                  if (!expandedSections.requests) {
-                    go('/requests');
-                  }
+                  go('/requests');
                 }}
                 className={cn(
-                  "w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm transition-all",
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all relative",
                   isActive('/requests')
                     ? "bg-blue-50 text-blue-700"
                     : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
                 )}
               >
-                <div className="flex items-center gap-3">
-                  <span className="text-gray-500">
-                    <FileText className="w-5 h-5" />
-                  </span>
-                  <span>Заявки</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                    9
-                  </span>
-                  <ChevronDown
-                    className={cn(
-                      "w-4 h-4 text-gray-400 transition-transform",
-                      expandedSections.requests && "rotate-180"
-                    )}
-                  />
-                </div>
+                {isActive('/requests') && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-blue-600 rounded-r" />
+                )}
+                <span className={cn("text-gray-500", isActive('/requests') && "text-blue-600")}>
+                  <FileText className="w-5 h-5" />
+                </span>
+                <span className="flex-1 text-left">Заявки</span>
+                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                  9
+                </span>
               </button>
-
-              {expandedSections.requests && (
-                <div className="ml-9 space-y-1 mt-1">
-                  <button
-                    onClick={() => go('/requests')}
-                    className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all"
-                  >
-                    Все заявки
-                  </button>
-                  <button className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all">
-                    Шаблоны заявок
-                  </button>
-                </div>
-              )}
             </>
           ) : (
             <NavButton
@@ -352,15 +327,6 @@ export function Sidebar() {
             onClick={() => go('/tasks')}
             active={isActive('/tasks')}
             badge={7}
-            isCollapsed={isCollapsed}
-          />
-
-          {/* Auto Planning */}
-          <NavButton
-            icon={<Sparkles className="w-5 h-5" />}
-            label="Автопланирование"
-            onClick={() => go('/auto-planning')}
-            active={isActive('/auto-planning')}
             isCollapsed={isCollapsed}
           />
 
