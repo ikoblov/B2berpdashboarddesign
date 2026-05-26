@@ -19,7 +19,7 @@ import { RequestDetail } from "./components/RequestDetail";
 import { CreateRequestPage } from "./components/CreateRequestPage";
 import { Shifts } from "./components/Shifts";
 import { ShiftDetail } from "./components/ShiftDetail";
-import { Workers } from "./components/Workers";
+import { WorkersRoster } from "./components/WorkersRoster";
 import { WorkerProfile } from "./components/WorkerProfile";
 import { ExecutorCard } from "./components/ExecutorCard";
 import { Payments } from "./components/Payments";
@@ -111,8 +111,7 @@ function ShiftDetailPage() {
 }
 
 function WorkersPage() {
-  const navigate = useNavigate();
-  return <Workers onOpenWorkerProfile={(id) => navigate(`/workers/${id}`)} />;
+  return <WorkersRoster />;
 }
 
 function WorkerProfilePage() {
